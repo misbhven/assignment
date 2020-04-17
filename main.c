@@ -27,6 +27,6 @@ int main(int argc, char **argv)
     }
 
     /* get cmd line args */
-    int m = atoi(argv[1]);
-    int t = atoi(argv[2]);
+    m = atoi(argv[1]);
+    t = atoi(argv[2]);
 }
