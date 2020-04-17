@@ -6,7 +6,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define MAX_LINE_LENGTH 6
+#define MAX_LINE_LENGTH 8
 void inFileInit();
 
 int getLines(FILE* file);
