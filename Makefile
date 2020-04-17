@@ -7,6 +7,7 @@ CC = gcc
 CFLAGS = -Wall -g -ansi -pedantic -Werror
 OBJ = main.o fileIO.o
 EXEC = lift_sim_A
+PARAMS = 10 10
 
 $(EXEC) : $(OBJ)
 	$(CC) $(OBJ) -o $(EXEC)
@@ -18,17 +19,14 @@ main.o : main.c main.h fileIO.h
 fileIO.o : fileIO.c fileIO.h
 	$(CC) -c fileIO.c $(CFLAGS)
 
-#clean
-	#to run: OS/assignment$ make clean
+#CLEAN
 clean :
 	rm -f $(EXEC) $(OBJ)
 
-#run lift_sim
-	#to run: OS/assignment$ make run
+#RUN
 run :
-	./$(EXEC)
+	./$(EXEC) $(PARAMS)
 
-#run with valgrind
-	#to run: OS/assignment$ make leaks
+#LEAKS
 leaks :
 	valgrind --leak-check=full ./$(EXEC)
