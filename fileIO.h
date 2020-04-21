@@ -5,9 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "queue.h"
 
 #define MAX_LINE_LENGTH 8
-void inFileInit();
+void inFileInit(Queue *requests, node *_node);
 
 int getLines(FILE* file);
 

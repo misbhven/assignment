@@ -12,63 +12,74 @@ Purpose: to handle all file io between other functions and sim_in and sim_out
 
 #include "fileIO.h"
 
-void inFileInit()
+void inFileInit(Queue *requests, node *_node)
 {
     /* file pointer for sim_in.txt */
     FILE* inFile;
     /* each individual line that is read in */
     char line[MAX_LINE_LENGTH];
     char* inFileName = "sim_input.txt";
-    int lines, i;
-    int instruction[2];
+    int lines, i, src, dest;
 
     if((inFile = fopen(inFileName, "r")) != NULL)
     {
         /* get lines in sim_in.txt */
         lines = getLines(inFile);
         rewind(inFile);
-        /* iterate through lines */
-        for(i = 0; i < lines; i++)
+        requests = initQueue(lines);
+        if(requests == NULL)
         {
-            if(fgets(line, MAX_LINE_LENGTH, inFile) != NULL)
-            {
-                /* get instructions from line */
-                int src;
-                int dest;
-                sscanf(line, "%d %d", &src, &dest);
-                printf("Sscanf yielded %d, %d\n", src, dest);
+            fprintf(stderr, "Could not init request queue.\n");
+        }
+        /* iterate through lines */
+        /* TODO change lower bound to 50 *****************************************************/
+        if(lines >= 1 && lines <= 100)
+        {
 
-                /* make sure instructions are within the floors 1-20 */
-                if(src >= 1 && src <= 20)
+            for(i = 0; i < lines; i++)
+            {
+                if(fgets(line, MAX_LINE_LENGTH, inFile) != NULL)
                 {
-                    if(dest >= 1 && dest <= 20)
+                    /* get instructions from line */
+                    sscanf(line, "%d %d", &src, &dest);
+                    /* make sure instructions are within the floors 1-20 */
+                    if(src >= 1 && src <= 20)
                     {
-                        instruction[0] = src;
-                        instruction[1] = dest;
-                        printf("Instruction: %d %d\n", instruction[0], instruction[1]);
+                        if(dest >= 1 && dest <= 20)
+                        {
+                            printf("Instructions Scanned: %d %d\n", src, dest);
+                            _node = (node*) malloc(sizeof (node));
+                            _node->data.source = src;
+                            _node->data.destination = dest;
+                            enqueue(requests, _node);
+                            /* printf("Linked List head: %d %d\n", testData[0], testData[1]); */
+                        }
+                        else
+                        {
+                            printf("ERROR: Found incorrect input in %s, %d is an invalid floor. Line: %d\n", inFileName, dest, i+1);
+                        }
                     }
                     else
                     {
-                        printf("ERROR: Found incorrect input in %s, %d is an invalid floor. Line: %d\n", inFileName, dest, i+1);
+                        printf("ERROR: Found incorrect input in %s, %d is an invalid floor. Line: %d\n", inFileName, src, i+1);
                     }
                 }
                 else
                 {
-                    printf("ERROR: Found incorrect input in %s, %d is an invalid floor. Line: %d\n", inFileName, src, i+1);
+                    perror("ERROR: sim_input.txt incorrectly formatted\n");
                 }
             }
-            else
-            {
-                perror("ERROR: sim_input.txt incorrectly formatted\n");
-            }
+            fclose(inFile);
         }
-        fclose(inFile);
+        else
+        {
+            perror("ERROR: sim_input.txt is not working\n");
+        }
     }
     else
     {
-        perror("ERROR: sim)input.txt is not working\n");
+        perror("ERROR: Lift requests in sim_input.txt is out side of range 50 <= number of requests <= 100\n");
     }
-
 }
 
 int getLines(FILE* file)
