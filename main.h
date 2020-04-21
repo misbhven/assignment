@@ -6,6 +6,9 @@
 #include <string.h>
 
 #include "fileIO.h"
+#include "queue.h"
+#include "threads.h"
+
 
 
 #endif

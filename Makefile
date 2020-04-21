@@ -4,8 +4,8 @@
 
 #Flags
 CC = gcc
-CFLAGS = -Wall -g -ansi -pedantic -Werror
-OBJ = main.o fileIO.o
+CFLAGS = -Wall -g -ansi -pedantic -Werror -pthread
+OBJ = main.o fileIO.o queue.o threads.o
 EXEC = lift_sim_A
 PARAMS = 10 10
 
@@ -13,11 +13,19 @@ $(EXEC) : $(OBJ)
 	$(CC) $(OBJ) -o $(EXEC)
 
 #files
-main.o : main.c main.h fileIO.h
+main.o : main.c main.h fileIO.h queue.h threads.h
 	$(CC) -c main.c $(CFLAGS)
 
-fileIO.o : fileIO.c fileIO.h
+fileIO.o : fileIO.c fileIO.h queue.h
 	$(CC) -c fileIO.c $(CFLAGS)
+
+queue.o : queue.c queue.h
+	$(CC) -c queue.c $(CFLAGS)
+
+threads.o : threads.c threads.h queue.h
+	$(CC) -c threads.c $(CFLAGS)
+
+
 
 #CLEAN
 clean :
