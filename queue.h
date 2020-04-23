@@ -7,14 +7,9 @@
 #define TRUE 1
 #define FALSE 0
 
-
-typedef struct Data {
+typedef struct Node {
     int source;
     int destination;
-} requestData;
-
-typedef struct Node {
-    requestData data;
     struct Node *prev;
 } node;
 
@@ -27,8 +22,9 @@ typedef struct Queue {
 
 Queue *initQueue(int limit);
 void destroyQueue(Queue *queue);
-int enqueue(Queue *queue, node *item);
-node * dequeue(Queue *queue);
+int enqueue(Queue *queue, int src, int dest);
+node *getRequest(Queue *queue);
+void dequeue(Queue *queue);
 int isEmpty(Queue* queue);
 
 #endif

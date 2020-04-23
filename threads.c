@@ -13,8 +13,8 @@
 /* mutex lock */
 pthread_mutex_t bufferMutex;
 
-/* semaphores */
-pthread_cond_t fullCond, emptyCond;
+/* conditions */
+pthread_cond_t canProduce, canConsume;
 
 /* buffer */
 buffer_item *buffer;
@@ -22,98 +22,87 @@ buffer_item *buffer;
 /* totals */
 totals_item *consumerTotals;
 
-/* flag for finishing threads, 1 = true, 0 = false */
-int flag = 1;
+/* out file pointer */
+
 
 /* producer runner method for threads */
-int isempty()
-{
-    if (isEmpty(buffer->bufferQ))
-    {
-        return TRUE;
-    }
-    else
-    {
-        return FALSE;
-    }
-}
-
-int isfull()
-{
-    if(buffer->bufferQ->size == buffer->bufferQ->limit)
-    {
-        return TRUE;
-    }
-    else
-    {
-        return FALSE;
-    }
-}
 void* lift_R(void *param)
 {
     Queue *allRequests = (Queue *)param;
-    node *_node;
+    node *prodNode;
+    int src, dest, totalRequests;
+    totalRequests = 0;
 
-    while (flag == 1)
+    while (allRequests->size !=0)
     {
-        /* remove a request from the total requests */
-        _node = dequeue(allRequests);
 
+        /* lock mutex */
         /* wait condition whilst buffer is full */
-        while (isfull())
-        {
-            pthread_cond_wait(&fullCond, &bufferMutex);
-        }
         pthread_mutex_lock(&bufferMutex);
+        while(buffer->bufferQ->size == buffer->bufferSize)
+        {
+            pthread_cond_wait(&canProduce, &bufferMutex);
+        }
 
-        /* start critical section */
+        /* remove a request from the total requests */
+        prodNode = getRequest(allRequests);
+        src = prodNode->source;
+        dest = prodNode->destination;
+
         /* insert request into the buffer */
-        enqueue(buffer->bufferQ, _node);
+        enqueue(buffer->bufferQ, src, dest);
         /* increment the total requests counter */
-        consumerTotals->requestsPreConsumption++;
-        printf("---\nProduced: floor %d to floor %d.\nRequest No. ---\n", _node->data.source, _node->data.destination);
+        totalRequests++;
+        producerLogger(src, dest, totalRequests);
+        /* printf("---\nProduced: floor %d to floor %d.\nRequest Num: %d\n---\n", src, dest, totalRequests); */
         /* exit critical section */
 
+        dequeue(allRequests);
 
+        pthread_cond_signal(&canConsume);
         pthread_mutex_unlock(&bufferMutex);
-        pthread_cond_signal(&emptyCond);
-
     }
-    /* shouldnt be reached */
+    printf("Produced finished\n");
     return NULL;
 }
 
 void* lift_consumer(void *in_lift_item)
 {
     lift_item *lift = (lift_item *) in_lift_item;
-    node *_node;
-    int movement;
-
-    while (flag == 1)
+    node *consNode;
+    int src, dest, movement;
+    /* only consume whilst there are items left to consume */
+    while(consumerTotals->requests < consumerTotals->allRequests)
     {
-        while (isEmpty(buffer->bufferQ))
-        {
-            pthread_cond_wait(&emptyCond, &bufferMutex);
-        }
         pthread_mutex_lock(&bufferMutex);
+        /* 2nd statement prevents deadlock */
+        while (buffer->bufferQ->size == 0 && consumerTotals->requests < consumerTotals->allRequests)
+        {
+            pthread_cond_wait(&canConsume, &bufferMutex);
+        }
 
-        _node = dequeue(buffer->bufferQ);
-        lift->requestTotal++;
-        movement = abs((lift->prevPos - _node->data.source) + (_node->data.source - _node->data.destination));
-        lift->moveTotal += movement;
-        consumerTotals->moves += movement;
-        consumerTotals->requests++;
-        displayInfo(_node, lift, movement);
-        /*
-        printf("---\nLift %c consumed: floor %d to floor %d\nPrevious Floor: %d\nDetailed operation:\n\tGo from floor %d to floor %d\n\tGo from floor %d to floor %d\n\t#movement for this request: %d\n\t#Total movement: %d\n\t#request: %d\nCurrent Floor: %d.\n---\n", lift->liftName, _node->data.source, _node->data.destination, lift->prevPos, _node->data.source, _node->data.destination, lift->prevPos, _node->data.source, _node->data.source, _node->data.destination, movement, lift->requestTotal, _node->data.destination);
-        */
-        lift->prevPos = _node->data.destination;
+        /* check incase race condition occurs */
+        if(consumerTotals->requests < consumerTotals->allRequests)
+        {
+            consNode = getRequest(buffer->bufferQ);
+            src = consNode->source;
+            dest = consNode->destination;
+            movement = abs((lift->prev - src) + (src - dest));
+            lift->requestTotal++;
+            lift->moveTotal += movement;
+            consumerTotals->moves += movement;
+            consumerTotals->requests++;
+            consumerLogger(src, dest, movement, lift->prev, lift->liftName);
+            /* displayInfo(src, dest, lift->prev, movement, lift->liftName); */
+            lift->prev = dest;
+            dequeue(buffer->bufferQ);
+        }
 
-
+        pthread_cond_signal(&canProduce);
         pthread_mutex_unlock(&bufferMutex);
-        pthread_cond_signal(&fullCond);
-        sleep(lift->sleepTime);
+        sleep(buffer->sleepTime);
     }
+    printf("\nLift %c thread ended\n", lift->liftName);
     return NULL;
 }
 
@@ -123,62 +112,55 @@ void threadInit(Queue* allRequests, int bufferSize, int sleepTime)
     Queue *bufferQ = NULL;
     pthread_t liftAID, liftBID, liftCID, liftRID;
     lift_item liftAItem, liftBItem, liftCItem;
-    pthread_cond_init(&emptyCond, NULL);
-    pthread_cond_init(&fullCond, NULL);
+    pthread_cond_init(&canProduce, NULL);
+    pthread_cond_init(&canConsume, NULL);
 
 
-    /*if (sem_init(&empty, 0, bufferSize) !=0){
-        fprintf(stderr, "could not init empty semaphore\n");
-    }*/
     if(pthread_mutex_init(&bufferMutex, NULL) != 0)
     {
         fprintf(stderr, "could not init buffer mutex\n");
     }
-    /*if(sem_init(&full, 0,0) != 0)
-    {
-        fprintf(stderr, "could not init full semaphore\n");
 
-    }*/
 
     /* initialise the buffer struct */
-    initBuffer(bufferQ, bufferSize);
+    initBuffer(bufferQ, bufferSize, sleepTime);
 
     /* initialise each lift with its own struct */
-    initLifts(&liftAItem, 'A', sleepTime);
-    initLifts(&liftBItem, 'B', sleepTime);
-    initLifts(&liftCItem, 'C', sleepTime);
+    initLifts(&liftAItem, 'A');
+    initLifts(&liftBItem, 'B');
+    initLifts(&liftCItem, 'C');
 
     /* initialise total requests struct */
-    initTotals(allRequests);
+    initTotals(allRequests->size);
 
     /* create all threads for lift request producer and the three lift consumers */
     pthread_create(&liftRID, NULL, lift_R, allRequests);
-    pthread_create(&liftAID, NULL, lift_consumer, &liftAItem);
-    pthread_create(&liftBID, NULL, lift_consumer, &liftBItem);
-    pthread_create(&liftCID, NULL, lift_consumer, &liftCItem);
-
-    sleep(10);
-    flag = 0;
-
+    pthread_create(&liftAID, NULL, lift_consumer, (void*)&liftAItem);
+    pthread_create(&liftBID, NULL, lift_consumer, (void*)&liftBItem);
+    pthread_create(&liftCID, NULL, lift_consumer, (void*)&liftCItem);
 
     /* join all and destroy everything */
     pthread_join(liftRID, NULL);
     pthread_join(liftAID, NULL);
     pthread_join(liftBID, NULL);
     pthread_join(liftCID, NULL);
-    pthread_mutex_destroy(&bufferMutex);
-    pthread_cond_destroy(&fullCond);
-    pthread_cond_destroy(&emptyCond);
-    /*
-    sem_destroy(&empty);
-    sem_destroy(&full);
-    */
+    printf("Got here\n");
 
+    totalLogger(consumerTotals->requests, consumerTotals->moves);
+    pthread_mutex_destroy(&bufferMutex);
+    pthread_cond_destroy(&canConsume);
+    pthread_cond_destroy(&canProduce);
+
+    destroyQueue(buffer->bufferQ);
+    free(consumerTotals);
+    free(buffer);
 }
 
-void initBuffer(Queue *queue, int _bufferSize)
+void initBuffer(Queue *queue, int _bufferSize, int _sleepTime)
 {
     /* initialise buffer */
+
+    buffer = (buffer_item*)malloc(sizeof(buffer_item));
     queue = initQueue(_bufferSize);
     if(queue == NULL)
     {
@@ -186,40 +168,92 @@ void initBuffer(Queue *queue, int _bufferSize)
     }
     buffer->bufferSize = _bufferSize;
     buffer->bufferQ = queue;
+    buffer->sleepTime = _sleepTime;
 }
 
-void initLifts(lift_item *lift, char _liftName, int _sleepTime)
+void initLifts(lift_item *lift, char _liftName)
 {
     /* initialise struct fields */
 
     lift->liftName = _liftName;
-    lift->sleepTime = _sleepTime;
-    lift->prevPos = 1;
-    lift->currentPos = 1;
+    lift->prev = 1;
     lift->moveTotal = 0;
     lift->requestTotal = 0;
 }
 
-void initTotals(Queue *requestQ)
+void initTotals(int size)
 {
-    consumerTotals->requests = requestQ->limit;
+    consumerTotals = (totals_item*)malloc(sizeof(totals_item));
+    consumerTotals->requests = 0;
     consumerTotals->moves = 0;
-    consumerTotals->requestsPreConsumption = 0;
+    consumerTotals->allRequests = size;
 }
 
-void displayInfo(node *_node, lift_item *lift, int movement)
+void displayInfo(int src, int dest, int prev, int movement, char name)
 {
-    int src, dest, prev;
-    src = _node->data.source;
-    dest = _node->data.destination;
-    prev = lift->prevPos;
 
-    printf("---\nLift %c consumed: floor %d to floor %d\n", lift->liftName, src, dest);
+    printf("---\nLift %c consumed: floor %d to floor %d\n", name, src, dest);
     printf("Previous Floor: %d\n", prev);
     printf("Detailed operation:\n\tGo from floor %d to floor %d\n\t", prev, src);
     printf("Go from floor %d to floor %d\n\t", src, dest);
     printf("#movement for this request: %d\n\t", movement);
     printf("#Total movement: %d\n\t", consumerTotals->moves);
     printf("#Total requests: %d\n", consumerTotals->requests);
-    printf("Current Floor: %d", dest);
+    printf("Current Floor: %d\n", dest);
+}
+
+void consumerLogger(int src, int dest, int movement, int prev, char name)
+{
+    FILE* logfile;
+
+    if((logfile = fopen("sim_out.txt", "a")) != NULL)
+    {
+        fprintf(logfile, "-------------------------------------------------------\n");
+        fprintf(logfile, "Lift %c consumed: floor %d to floor %d\n", name, src, dest);
+        fprintf(logfile, "Previous Floor: %d\n", prev);
+        fprintf(logfile, "Detailed operation:\n\tGo from floor %d to floor %d\n\t", prev, src);
+        fprintf(logfile, "Go from floor %d to floor %d\n\t", src, dest);
+        fprintf(logfile, "#movement for this request: %d\n\t", movement);
+        fprintf(logfile, "#Total movement: %d\n\t", consumerTotals->moves);
+        fprintf(logfile, "#Total requests: %d\n", consumerTotals->requests);
+        fprintf(logfile, "Current Floor: %d\n", dest);
+    }
+    else
+    {
+        perror("ERROR: couldnt open output file");
+    }
+    fclose(logfile);
+}
+
+void totalLogger(int requests, int moves)
+{
+    FILE* logfile;
+
+    if((logfile = fopen("sim_out.txt", "a")) != NULL)
+    {
+        fprintf(logfile, "-------------------------------------------------------\n");
+        fprintf(logfile, "Total Number of Requests: %d\nTotal movements: %d\n", requests, moves);
+        fprintf(logfile, "-------------------------------------------------------\n");
+    }
+    else
+    {
+        perror("ERROR: couldnt open output file");
+    }
+    fclose(logfile);
+}
+
+void producerLogger(int src, int dest, int totalRequests)
+{
+    FILE* logfile;
+
+    if((logfile = fopen("sim_out.txt", "a")) != NULL)
+    {
+        fprintf(logfile, "-------------------------------------------------------\n");
+        fprintf(logfile, "Produced: floor %d to floor %d.\nRequest Num: %d\n", src, dest, totalRequests);
+    }
+    else
+    {
+        perror("ERROR: couldnt open output file");
+    }
+    fclose(logfile);
 }

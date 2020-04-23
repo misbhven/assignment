@@ -7,28 +7,27 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <stdbool.h>
 
 #include "queue.h"
 
 typedef struct _totals_item {
     int moves;
     int requests;
-    int requestsPreConsumption;
+    int allRequests;
 } totals_item;
 
 typedef struct _buffer_item {
     int bufferSize;
-    int bufferElements;
     Queue *bufferQ;
+    int sleepTime;
 } buffer_item;
 
 typedef struct _lift_item {
-    int sleepTime;
     char liftName;
-    int prevPos;
-    int currentPos;
     int moveTotal;
     int requestTotal;
+    int prev;
 } lift_item;
 
 int isempty();
@@ -41,12 +40,18 @@ void* lift_consumer(void *in_lift_item);
 
 void threadInit(Queue* allRequests, int bufferSize, int sleepTime);
 
-void initBuffer(Queue *queue, int _bufferSize);
+void initBuffer(Queue *queue, int _bufferSize, int _sleepTime);
 
-void initLifts(lift_item *lift, char _liftName, int _sleepTime);
+void initLifts(lift_item *lift, char _liftName);
 
-void initTotals(Queue* requestQ);
+void initTotals(int size);
 
-void displayInfo(node *_node, lift_item *lift, int movement);
+void displayInfo(int src, int dest, int prev, int movement, char name);
+
+void consumerLogger(int src, int dest, int movement, int prev, char name);
+
+void totalLogger(int requests, int moves);
+
+void producerLogger(int src, int dest, int totalRequests);
 
 #endif

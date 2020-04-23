@@ -4,7 +4,7 @@
 
 #Flags
 CC = gcc
-CFLAGS = -Wall -g -ansi -pedantic -Werror -pthread
+CFLAGS = -Wall -g -ansi -pedantic -Werror -pthread -std=c99
 OBJ = main.o fileIO.o queue.o threads.o
 EXEC = lift_sim_A
 PARAMS = 10 10

@@ -13,13 +13,11 @@ int main(int argc, char **argv)
     /* cmd line arguements for buffer size and sleep time */
     int m, t;
     Queue *requests = NULL;
-    node *_node = NULL;
-
 
     /* check that number of arguements == 3, otherwise provide usage info */
     if(argc == 3)
     {
-        inFileInit(requests, _node);
+        requests = inFileInit(requests);
     }
     /* usage information for running ./program */
     else
@@ -36,10 +34,5 @@ int main(int argc, char **argv)
     threadInit(requests, m, t);
 
     /* destroy request queue and all it's nodes */
-    while (!isEmpty(requests))
-    {
-        _node = dequeue(requests);
-        free(_node);
-    }
     destroyQueue(requests);
 }

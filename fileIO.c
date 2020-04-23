@@ -8,11 +8,9 @@ Purpose: to handle all file io between other functions and sim_in and sim_out
          files and their respective values
 *******************************************************************************/
 
-
-
 #include "fileIO.h"
 
-void inFileInit(Queue *requests, node *_node)
+Queue *inFileInit(Queue *requests)
 {
     /* file pointer for sim_in.txt */
     FILE* inFile;
@@ -48,10 +46,7 @@ void inFileInit(Queue *requests, node *_node)
                         if(dest >= 1 && dest <= 20)
                         {
                             printf("Instructions Scanned: %d %d\n", src, dest);
-                            _node = (node*) malloc(sizeof (node));
-                            _node->data.source = src;
-                            _node->data.destination = dest;
-                            enqueue(requests, _node);
+                            enqueue(requests, src, dest);
                             /* printf("Linked List head: %d %d\n", testData[0], testData[1]); */
                         }
                         else
@@ -80,6 +75,7 @@ void inFileInit(Queue *requests, node *_node)
     {
         perror("ERROR: Lift requests in sim_input.txt is out side of range 50 <= number of requests <= 100\n");
     }
+    return requests;
 }
 
 int getLines(FILE* file)
@@ -96,5 +92,4 @@ int getLines(FILE* file)
         }
     }
     return lines;
-
 }
