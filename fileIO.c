@@ -45,7 +45,6 @@ Queue *inFileInit(Queue *requests)
                     {
                         if(dest >= 1 && dest <= 20)
                         {
-                            printf("Instructions Scanned: %d %d\n", src, dest);
                             enqueue(requests, src, dest);
                             /* printf("Linked List head: %d %d\n", testData[0], testData[1]); */
                         }

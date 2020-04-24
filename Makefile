@@ -29,6 +29,7 @@ threads.o : threads.c threads.h
 clean :
 	rm -rf lift_sim_A
 	rm -rf *.o
+	rm -rf sim_out.txt
 
 #RUN
 run :
