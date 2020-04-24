@@ -30,9 +30,6 @@ typedef struct _lift_item {
     int prev;
 } lift_item;
 
-int isempty();
-
-int isfull();
 
 void* lift_R(void *param);
 

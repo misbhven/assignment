@@ -3,38 +3,36 @@
 #PROGRAM: lift_sim
 
 #Flags
-CC = gcc
-CFLAGS = -Wall -g -ansi -pedantic -Werror -pthread -std=c99
-OBJ = main.o fileIO.o queue.o threads.o
-EXEC = lift_sim_A
-PARAMS = 10 10
+CC = clang
+CFLAGS = --std=c99 -c -pthread -Wall -Wextra -Wformat=2 -Wswitch-default -Wswitch-enum -Wpointer-arith -Wbad-function-cast -Wstrict-overflow=5 -Wstrict-prototypes -Winline -Wundef -Wnested-externs -Wcast-qual -Wshadow -Wunreachable-code -Wfloat-equal -Wstrict-aliasing -Wredundant-decls -Wold-style-definition -g -O0 -fno-omit-frame-pointer -fno-common -Wdouble-promotion -Wcast-align -Winit-self
+OBJ = lift_sim_A
 
-$(EXEC) : $(OBJ)
-	$(CC) $(OBJ) -o $(EXEC)
 
+all: $(OBJ)
 #files
+
+$(OBJ) : main.o fileIO.o queue.o threads.o
+	$(CC) main.o fileIO.o queue.o threads.o -o $(OBJ)
+
 main.o : main.c main.h fileIO.h queue.h threads.h
-	$(CC) -c main.c $(CFLAGS)
+	$(CC) $(CFLAGS) main.c
 
 fileIO.o : fileIO.c fileIO.h queue.h
-	$(CC) -c fileIO.c $(CFLAGS)
+	$(CC) $(CFLAGS) fileIO.c
 
 queue.o : queue.c queue.h
-	$(CC) -c queue.c $(CFLAGS)
+	$(CC) $(CFLAGS) queue.c
 
 threads.o : threads.c threads.h queue.h
-	$(CC) -c threads.c $(CFLAGS)
+	$(CC) $(CFLAGS) threads.c
 
 
 
 #CLEAN
 clean :
-	rm -f $(EXEC) $(OBJ)
+	rm -rf lift_sim_A
+	rm -rf *.o
 
 #RUN
 run :
-	./$(EXEC) $(PARAMS)
-
-#LEAKS
-leaks :
-	valgrind --leak-check=full ./$(EXEC)
+	./lift_sim_A
