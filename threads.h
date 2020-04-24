@@ -35,7 +35,7 @@ void* lift_consumer(void *in_lift_item);
 
 void threadInit(Queue* allRequests, int bufferSize, int sleepTime);
 
-void initBuffer(Queue *queue, int _bufferSize, int _sleepTime);
+void initBuffer(int _bufferSize, int _sleepTime);
 
 void initLifts(lift_item *lift, char _liftName);
 

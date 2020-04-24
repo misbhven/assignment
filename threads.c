@@ -23,7 +23,7 @@ buffer_item *buffer;
 totals_item *consumerTotals;
 
 /* out file pointer */
-
+int flag;
 
 /* producer runner method for threads */
 void* lift_R(void *param)
@@ -56,8 +56,12 @@ void* lift_R(void *param)
         producerLogger(src, dest, totalRequests);
         /* printf("---\nProduced: floor %d to floor %d.\nRequest Num: %d\n---\n", src, dest, totalRequests); */
         /* exit critical section */
-
+		
         dequeue(allRequests);
+		if (consumerTotals->requests < consumerTotals->allRequests)
+		{
+			flag = 1;
+		}
 
         pthread_cond_signal(&canConsume);
         pthread_mutex_unlock(&bufferMutex);
@@ -72,7 +76,7 @@ void* lift_consumer(void *in_lift_item)
     node *consNode;
     int src, dest, movement;
     /* only consume whilst there are items left to consume */
-    while(consumerTotals->requests < consumerTotals->allRequests)
+    while(flag != 1)
     {
         pthread_mutex_lock(&bufferMutex);
         /* 2nd statement prevents deadlock */
@@ -82,7 +86,7 @@ void* lift_consumer(void *in_lift_item)
         }
 
         /* check incase race condition occurs */
-        if(consumerTotals->requests < consumerTotals->allRequests)
+        if(flag != 1)
         {
             consNode = getRequest(buffer->bufferQ);
             src = consNode->source;
@@ -109,30 +113,38 @@ void* lift_consumer(void *in_lift_item)
 
 void threadInit(Queue* allRequests, int bufferSize, int sleepTime)
 {
-    Queue *bufferQ = NULL;
+	flag = 0;
     pthread_t liftAID, liftBID, liftCID, liftRID;
     lift_item liftAItem, liftBItem, liftCItem;
+
+	initBuffer(bufferSize, sleepTime);
+	initLifts(&liftAItem, 'A');
+	initLifts(&liftBItem, 'B');
+	initLifts(&liftCItem, 'C');
+	initTotals(allRequests->size);
+
+
     pthread_cond_init(&canProduce, NULL);
     pthread_cond_init(&canConsume, NULL);
 
-
+	
     if(pthread_mutex_init(&bufferMutex, NULL) != 0)
     {
         fprintf(stderr, "could not init buffer mutex\n");
     }
 
-
-    /* initialise the buffer struct */
+/*
+    * initialise the buffer struct 
     initBuffer(bufferQ, bufferSize, sleepTime);
 
-    /* initialise each lift with its own struct */
+    * initialise each lift with its own struct 
     initLifts(&liftAItem, 'A');
     initLifts(&liftBItem, 'B');
     initLifts(&liftCItem, 'C');
 
-    /* initialise total requests struct */
+    * initialise total requests struct 
     initTotals(allRequests->size);
-
+*/
     /* create all threads for lift request producer and the three lift consumers */
     pthread_create(&liftRID, NULL, lift_R, allRequests);
     pthread_create(&liftAID, NULL, lift_consumer, (void*)&liftAItem);
@@ -156,18 +168,12 @@ void threadInit(Queue* allRequests, int bufferSize, int sleepTime)
     free(buffer);
 }
 
-void initBuffer(Queue *queue, int _bufferSize, int _sleepTime)
+void initBuffer(int _bufferSize, int _sleepTime)
 {
     /* initialise buffer */
-
     buffer = (buffer_item*)malloc(sizeof(buffer_item));
-    queue = initQueue(_bufferSize);
-    if(queue == NULL)
-    {
-        fprintf(stderr, "could not init buffer queue.\n");
-    }
     buffer->bufferSize = _bufferSize;
-    buffer->bufferQ = queue;
+    buffer->bufferQ = initQueue(_bufferSize);
     buffer->sleepTime = _sleepTime;
 }
 
