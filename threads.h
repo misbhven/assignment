@@ -6,8 +6,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <semaphore.h>
-#include <stdbool.h>
 
 #include "queue.h"
 
