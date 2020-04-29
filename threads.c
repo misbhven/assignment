@@ -11,10 +11,11 @@
 #include "threads.h"
 
 /* mutex lock */
-pthread_mutex_t bufferMutex;
+pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* conditions */
-pthread_cond_t canProduce, canConsume;
+pthread_cond_t canProduce = PTHREAD_COND_INITIALIZER;
+pthread_cond_t canConsume = PTHREAD_COND_INITIALIZER;
 
 /* buffer */
 buffer_item *buffer;
@@ -22,7 +23,7 @@ buffer_item *buffer;
 /* totals */
 totals_item *consumerTotals;
 
-/* out file pointer */
+/* flag that represents that there are still things to consume */
 int flag;
 
 /* producer runner method for threads */
@@ -41,6 +42,7 @@ void* lift_R(void *param)
         pthread_mutex_lock(&bufferMutex);
         while(buffer->bufferQ->size == buffer->bufferSize)
         {
+            printf("Producer Waiting\n");
             pthread_cond_wait(&canProduce, &bufferMutex);
         }
 
@@ -56,15 +58,12 @@ void* lift_R(void *param)
         producerLogger(src, dest, totalRequests);
         /* printf("---\nProduced: floor %d to floor %d.\nRequest Num: %d\n---\n", src, dest, totalRequests); */
         /* exit critical section */
-		
+
         dequeue(allRequests);
-		if (consumerTotals->requests < consumerTotals->allRequests)
-		{
-			flag = 1;
-		}
 
         pthread_cond_signal(&canConsume);
         pthread_mutex_unlock(&bufferMutex);
+        printf("Produced: %d -> %d\n", src, dest);
     }
     printf("Produced finished\n");
     return NULL;
@@ -76,18 +75,21 @@ void* lift_consumer(void *in_lift_item)
     node *consNode;
     int src, dest, movement;
     /* only consume whilst there are items left to consume */
-    while(flag != 1)
+    while(flag == 0)
     {
         pthread_mutex_lock(&bufferMutex);
         /* 2nd statement prevents deadlock */
-        while (buffer->bufferQ->size == 0 && consumerTotals->requests < consumerTotals->allRequests)
+        while (buffer->bufferQ->size == 0 && flag == 0)
         {
+            printf("Lift %c Waiting\n", lift->liftName);
             pthread_cond_wait(&canConsume, &bufferMutex);
         }
 
         /* check incase race condition occurs */
-        if(flag != 1)
+
+        if (flag == 0)
         {
+            printf("lift %c consuming\n", lift->liftName);
             consNode = getRequest(buffer->bufferQ);
             src = consNode->source;
             dest = consNode->destination;
@@ -97,14 +99,21 @@ void* lift_consumer(void *in_lift_item)
             consumerTotals->moves += movement;
             consumerTotals->requests++;
             consumerLogger(src, dest, movement, lift->prev, lift->liftName);
-            /* displayInfo(src, dest, lift->prev, movement, lift->liftName); */
+                /* displayInfo(src, dest, lift->prev, movement, lift->liftName); */
             lift->prev = dest;
             dequeue(buffer->bufferQ);
         }
+        if (consumerTotals->requests == consumerTotals->allRequests)
+        {
+            flag = 1;
+            printf("no more items being produced\n");
+        }
+
 
         pthread_cond_signal(&canProduce);
         pthread_mutex_unlock(&bufferMutex);
         sleep(buffer->sleepTime);
+        printf("Lift %c consumed: %d -> %d\n", lift->liftName, src, dest);
     }
     printf("\nLift %c thread ended\n", lift->liftName);
     return NULL;
@@ -123,26 +132,16 @@ void threadInit(Queue* allRequests, int bufferSize, int sleepTime)
 	initLifts(&liftCItem, 'C');
 	initTotals(allRequests->size);
 
-
-    pthread_cond_init(&canProduce, NULL);
-    pthread_cond_init(&canConsume, NULL);
-
-	
-    if(pthread_mutex_init(&bufferMutex, NULL) != 0)
-    {
-        fprintf(stderr, "could not init buffer mutex\n");
-    }
-
 /*
-    * initialise the buffer struct 
+    * initialise the buffer struct
     initBuffer(bufferQ, bufferSize, sleepTime);
 
-    * initialise each lift with its own struct 
+    * initialise each lift with its own struct
     initLifts(&liftAItem, 'A');
     initLifts(&liftBItem, 'B');
     initLifts(&liftCItem, 'C');
 
-    * initialise total requests struct 
+    * initialise total requests struct
     initTotals(allRequests->size);
 */
     /* create all threads for lift request producer and the three lift consumers */
