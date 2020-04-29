@@ -37,12 +37,12 @@ void* lift_R(void *param)
     while (allRequests->size !=0)
     {
 
+
         /* lock mutex */
         /* wait condition whilst buffer is full */
         pthread_mutex_lock(&bufferMutex);
         while(buffer->bufferQ->size == buffer->bufferSize)
         {
-            printf("Producer Waiting\n");
             pthread_cond_wait(&canProduce, &bufferMutex);
         }
 
@@ -56,16 +56,13 @@ void* lift_R(void *param)
         /* increment the total requests counter */
         totalRequests++;
         producerLogger(src, dest, totalRequests);
-        /* printf("---\nProduced: floor %d to floor %d.\nRequest Num: %d\n---\n", src, dest, totalRequests); */
-        /* exit critical section */
-
         dequeue(allRequests);
+
+        /* exit critical section */
 
         pthread_cond_signal(&canConsume);
         pthread_mutex_unlock(&bufferMutex);
-        printf("Produced: %d -> %d\n", src, dest);
     }
-    printf("Produced finished\n");
     return NULL;
 }
 
@@ -75,21 +72,21 @@ void* lift_consumer(void *in_lift_item)
     node *consNode;
     int src, dest, movement;
     /* only consume whilst there are items left to consume */
+    /* this is the only race condition I get in helgrind, fine though because
+       the producer never alters the state of flag during it's lock. */
     while(flag == 0)
     {
         pthread_mutex_lock(&bufferMutex);
         /* 2nd statement prevents deadlock */
         while (buffer->bufferQ->size == 0 && flag == 0)
         {
-            printf("Lift %c Waiting\n", lift->liftName);
             pthread_cond_wait(&canConsume, &bufferMutex);
         }
 
         /* check incase race condition occurs */
-
         if (flag == 0)
         {
-            printf("lift %c consuming\n", lift->liftName);
+            /* consume and update relevent data, write to file */
             consNode = getRequest(buffer->bufferQ);
             src = consNode->source;
             dest = consNode->destination;
@@ -99,23 +96,19 @@ void* lift_consumer(void *in_lift_item)
             consumerTotals->moves += movement;
             consumerTotals->requests++;
             consumerLogger(src, dest, movement, lift->prev, lift->liftName);
-                /* displayInfo(src, dest, lift->prev, movement, lift->liftName); */
             lift->prev = dest;
             dequeue(buffer->bufferQ);
         }
+        /* is there anything lef to consume? No? let other consumers know */
         if (consumerTotals->requests == consumerTotals->allRequests)
         {
             flag = 1;
-            printf("no more items being produced\n");
         }
-
 
         pthread_cond_signal(&canProduce);
         pthread_mutex_unlock(&bufferMutex);
         sleep(buffer->sleepTime);
-        printf("Lift %c consumed: %d -> %d\n", lift->liftName, src, dest);
     }
-    printf("\nLift %c thread ended\n", lift->liftName);
     return NULL;
 }
 
@@ -126,24 +119,15 @@ void threadInit(Queue* allRequests, int bufferSize, int sleepTime)
     pthread_t liftAID, liftBID, liftCID, liftRID;
     lift_item liftAItem, liftBItem, liftCItem;
 
+    /* init the shared buffer */
 	initBuffer(bufferSize, sleepTime);
+    /* init each lift struct */
 	initLifts(&liftAItem, 'A');
 	initLifts(&liftBItem, 'B');
 	initLifts(&liftCItem, 'C');
+    /* init the consumerTotals struct */
 	initTotals(allRequests->size);
 
-/*
-    * initialise the buffer struct
-    initBuffer(bufferQ, bufferSize, sleepTime);
-
-    * initialise each lift with its own struct
-    initLifts(&liftAItem, 'A');
-    initLifts(&liftBItem, 'B');
-    initLifts(&liftCItem, 'C');
-
-    * initialise total requests struct
-    initTotals(allRequests->size);
-*/
     /* create all threads for lift request producer and the three lift consumers */
     pthread_create(&liftRID, NULL, lift_R, allRequests);
     pthread_create(&liftAID, NULL, lift_consumer, (void*)&liftAItem);
@@ -155,7 +139,6 @@ void threadInit(Queue* allRequests, int bufferSize, int sleepTime)
     pthread_join(liftAID, NULL);
     pthread_join(liftBID, NULL);
     pthread_join(liftCID, NULL);
-    printf("Got here\n");
 
     totalLogger(consumerTotals->requests, consumerTotals->moves);
     pthread_mutex_destroy(&bufferMutex);
@@ -186,6 +169,7 @@ void initLifts(lift_item *lift, char _liftName)
     lift->requestTotal = 0;
 }
 
+/* init the totals */
 void initTotals(int size)
 {
     consumerTotals = (totals_item*)malloc(sizeof(totals_item));
@@ -194,6 +178,7 @@ void initTotals(int size)
     consumerTotals->allRequests = size;
 }
 
+/* debug method for displaying info to console, not file */
 void displayInfo(int src, int dest, int prev, int movement, char name)
 {
 
@@ -207,6 +192,7 @@ void displayInfo(int src, int dest, int prev, int movement, char name)
     printf("Current Floor: %d\n", dest);
 }
 
+/* logs lift/consumer information */
 void consumerLogger(int src, int dest, int movement, int prev, char name)
 {
     FILE* logfile;
@@ -230,6 +216,7 @@ void consumerLogger(int src, int dest, int movement, int prev, char name)
     fclose(logfile);
 }
 
+/* log the total requests and moves at then end of file */
 void totalLogger(int requests, int moves)
 {
     FILE* logfile;

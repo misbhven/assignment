@@ -30,8 +30,7 @@ Queue *inFileInit(Queue *requests)
             fprintf(stderr, "Could not init request queue.\n");
         }
         /* iterate through lines */
-        /* TODO change lower bound to 50 *****************************************************/
-        if(lines >= 1 && lines <= 100)
+        if(lines >= 50 && lines <= 100)
         {
 
             for(i = 0; i < lines; i++)

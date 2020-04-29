@@ -33,4 +33,10 @@ clean :
 
 #RUN
 run :
-	./lift_sim_A
+	./lift_sim_A 10 1
+
+valgrind :
+	valgrind ./lift_sim_A 10 1
+
+helgrind :
+	valgrind --tool=helgrind ./lift_sim_A 10 1

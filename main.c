@@ -10,6 +10,7 @@ Purpose: runs the main method
 
 int main(int argc, char **argv)
 {
+    printf("\n\n\n----------\n* lift_sim_A (pthreads)\n* Starting...\n----------\n\n\n");
     /* cmd line arguements for buffer size and sleep time */
     int m, t;
     Queue *requests = NULL;
@@ -31,7 +32,12 @@ int main(int argc, char **argv)
     t = atoi(argv[2]);
 
 
+    printf("----------\n* Running threads...\n----------\n\n\n");
+
     threadInit(requests, m, t);
+
+    printf("----------\n*lift_sim_A (pthreads)\n* Done!\n* Check sim_out.txt for results.\n----------\n\n\n");
+
 
     /* destroy request queue and all it's nodes */
     destroyQueue(requests);
